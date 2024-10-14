@@ -3,6 +3,8 @@ from typing import Optional
 from mysql.connector import connection
 
 from database import get_db
+from users.schemas import UserResponse
+from auth.views import get_current_user
 
 
 search_workers_router = APIRouter(
@@ -17,9 +19,15 @@ def search_workers(
     max_rate: Optional[float] = Query(None, description="Maximum rate for filtering"),
     rate_type: Optional[str] = Query(None, description="Filter by rate type"),
     working_area_name: Optional[str] = Query(None, description="Filter by working area name"),
-    gender: Optional[str] = Query(None, description="Filter by worker gender") 
+    gender: Optional[str] = Query(None, description="Filter by worker gender"),
+    current_user : UserResponse = Depends(get_current_user) 
 ):
+    
     cursor = db.cursor(dictionary=True)
+    
+    # Get current user city
+    cursor.execute("SELECT city FROM profile WHERE user_id = %s", (current_user["id"],))
+    curr_user_city = cursor.fetchone()
     
     # Base query
     get_query = """
@@ -28,6 +36,8 @@ def search_workers(
             profile.first_name,
             profile.last_name,
             profile.gender,
+            profile.phone_number,
+            profile.city,
             working_area_info.name,
             working_area_info.rate_type,
             working_area_info.rate,
@@ -35,27 +45,32 @@ def search_workers(
         FROM 
             users 
         JOIN 
-            profile ON users.id = profile.user_id
-        JOIN
-            worker ON profile.id = worker.profile_id
-        JOIN
-            working_area_info ON worker.id = working_area_info.worker_id
-    """
+            profile ON users.id = profile.user_id 
+        JOIN 
+            worker ON profile.id = worker.profile_id 
+        JOIN 
+            working_area_info ON worker.id = working_area_info.worker_id 
+    """ 
 
-    # List to store filters
-    filters = []
-
+    # List to store filters 
+    filters = [] 
+    
     # Add optional filters 
-    if min_rate is not None:
-        filters.append(f"working_area_info.rate >= {min_rate}")
-    if max_rate is not None:
-        filters.append(f"working_area_info.rate <= {max_rate}")
+    if min_rate is not None: 
+        filters.append(f"working_area_info.rate >= {min_rate}") 
+    if max_rate is not None: 
+        filters.append(f"working_area_info.rate <= {max_rate}") 
     if rate_type:
         filters.append(f"working_area_info.rate_type = '{rate_type}'")
     if working_area_name:
         filters.append(f"working_area_info.name = '{working_area_name}'")
     if gender:
         filters.append(f"profile.gender = '{gender}'")
+        
+    # Add default filter by current user city
+    if curr_user_city:
+        city = curr_user_city["city"]
+        filters.append(f"profile.city = '{city}'") 
 
     # If there are any filters, append them to the query
     if filters:
@@ -74,6 +89,8 @@ def search_workers(
                 "first_name": row["first_name"],
                 "last_name": row["last_name"],
                 "gender": row["gender"],
+                "phone_number": row["phone_number"],
+                "city": row["city"],
                 "working_areas": []
             }
         
@@ -87,5 +104,5 @@ def search_workers(
     
     # Convert the dictionary into a list of workers
     return list(workers.values())
-
+    
     

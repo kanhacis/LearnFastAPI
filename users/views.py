@@ -65,8 +65,8 @@ def create_profile(data: UserProfile, db: connection.MySQLConnection = Depends(g
     
     # Insert the new profile in the database
     insert_query = """
-        INSERT INTO profile (user_id, first_name, last_name, phone_number, gender, role, address, longitude, latitude) 
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO profile (user_id, first_name, last_name, phone_number, gender, role, city, address, longitude, latitude) 
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     cursor.execute(insert_query, (
         current_user["id"], 
@@ -75,6 +75,7 @@ def create_profile(data: UserProfile, db: connection.MySQLConnection = Depends(g
         data.phone_number, 
         data.gender, 
         data.role,
+        data.city,
         data.address, 
         data.longitude, 
         data.latitude
@@ -113,7 +114,7 @@ def update_profile(data: ProfileUpdate, db: connection.MySQLConnection = Depends
     result = cursor.fetchone()
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-
+    
     # Prepare the update query, checking if the fields are provided
     query = "UPDATE profile SET "
     update_fields = []
@@ -138,6 +139,10 @@ def update_profile(data: ProfileUpdate, db: connection.MySQLConnection = Depends
     if data.address and not data.address == "string":
         update_fields.append("address = %s")
         update_values.append(data.address)
+        
+    if data.city and not data.city == "string":
+        update_fields.append("city = %s")
+        update_values.append(data.city)
     
     if data.longitude and not data.longitude == "string":
         update_fields.append("longitude = %s")
@@ -153,7 +158,7 @@ def update_profile(data: ProfileUpdate, db: connection.MySQLConnection = Depends
 
     # If no fields to update, raise an exception
     if not update_fields:
-        raise HTTPException(status_code=status.HTTP_400_BAD_data, detail="No fields provided for update")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields provided for update")
 
     # Finalize query and execute
     query += ", ".join(update_fields) + " WHERE user_id = %s"

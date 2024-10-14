@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from mysql.connector import connection
 from database import get_db
-from .schemas import Worker, WorkingAreaInfo
+from .schemas import Worker, WorkingAreaInfo, WorkingAreaInfoUpdate
 from users.schemas import UserResponse
 from auth.views import get_current_user
 
@@ -60,4 +60,61 @@ def create_working_area_info(data: WorkingAreaInfo, db: connection.MySQLConnecti
         return {"detail": "Working area information created successfully"}
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found, please create")
+
+
+## PATCH endpoint to update working area info
+@worker_router.patch("/working_area_info/", status_code=status.HTTP_200_OK)
+def update_working_area_info(data: WorkingAreaInfoUpdate, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+    cursor = db.cursor() 
+
+    # Check if the worker and their working area info exist
+    get_worker_info_query = """
+        SELECT wai.id, wai.worker_id FROM working_area_info as wai
+        JOIN worker as w ON wai.worker_id = w.id
+        JOIN profile as p ON w.profile_id = p.id
+        WHERE p.user_id = %s
+    """
+    cursor.execute(get_worker_info_query, (current_user["id"],))
+    worker_info_result = cursor.fetchone()  # Fetch only one record
+    
+    # If the worker's working area info exists, proceed with the update
+    if worker_info_result:
+        worker_id = worker_info_result[1]  # Extract worker_id from the query result
+        
+        # Prepare the update query based on provided fields
+        update_query = "UPDATE working_area_info SET "
+        update_fields = []
+        update_values = []
+
+        if data.name and data.name != "string":
+            update_fields.append("name = %s")
+            update_values.append(data.name)
+        
+        # if data.rate_type and data.rate_type != "string":
+        #     update_fields.append("rate_type = %s")
+        #     update_values.append(data.rate_type)
+        
+        if data.rate and data.rate != "string":
+            update_fields.append("rate = %s")
+            update_values.append(data.rate)
+        
+        if data.description and data.description != "string":
+            update_fields.append("description = %s")
+            update_values.append(data.description)
+        
+        # If no fields to update, raise an exception
+        if not update_fields:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields provided for update")
+        
+        # Finalize the update query by adding the WHERE clause and worker_id
+        update_query += ", ".join(update_fields) + " WHERE working_area_info.worker_id = %s"
+        update_values.append(worker_id)  # Append worker_id to the list of values for the query
+        
+        print(update_query, tuple(update_values)) 
+        
+        # Execute the final update query
+        cursor.execute(update_query, tuple(update_values)) 
+        db.commit() 
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No working area info found to update")
 

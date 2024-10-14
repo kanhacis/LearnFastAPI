@@ -32,7 +32,7 @@ def verify_token(token: str, credentials_exception):
         # Validate that the necessary data is present
         if email is None or user_id is None:
             raise credentials_exception
-        
+    
         token_data = {"email": email, "id": user_id}
         return token_data
 
@@ -45,7 +45,7 @@ def verify_token(token: str, credentials_exception):
         )
     
     except InvalidTokenError:
-        # Handle general JWT errors
-        raise credentials_exception
+        # Handle general JWT errors 
+        raise credentials_exception 
     
-        
+
