@@ -21,7 +21,7 @@ class UserProfile(BaseModel):
     gender: GenderEnum
     role: RoleEnum
     city: str
-    address: str
+    location: str
     longitude: str
     latitude: str    
     
@@ -31,7 +31,7 @@ class ProfileUpdate(BaseModel):
     last_name: Optional[str]
     phone_number: Optional[str]
     gender: Optional[GenderEnum]
-    address: Optional[str]
+    location: Optional[str]
     city: Optional[str]
     longitude: Optional[str]
     latitude: Optional[str]

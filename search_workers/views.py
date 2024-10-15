@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException, Query
+from fastapi import APIRouter, Depends, status, Query
 from typing import Optional
 from mysql.connector import connection
 
@@ -10,6 +10,35 @@ from auth.views import get_current_user
 search_workers_router = APIRouter(
     tags=["Search workers"]
 )
+
+
+## Function to serialize the workers
+def serialize_workers(results):
+    workers = {}
+    for row in results:
+        email = row["email"]
+        
+        # If worker is not in the dictionary by email, add them
+        if email not in workers:
+            workers[email] = {
+                "first_name": row["first_name"],
+                "last_name": row["last_name"],
+                "gender": row["gender"],
+                "phone_number": row["phone_number"],
+                "city": row["city"],
+                "working_areas": []
+            }
+        
+        # Append working area info to the worker
+        workers[email]["working_areas"].append({
+            "name": row["name"],
+            "rate_type": row["rate_type"],
+            "rate": row["rate"],
+            "description": row["description"]
+        })
+        
+    # Return the workers
+    return workers
 
 
 @search_workers_router.get("/search_workers/", status_code=status.HTTP_200_OK)
@@ -27,7 +56,7 @@ def search_workers(
     
     # Get current user city
     cursor.execute("SELECT city FROM profile WHERE user_id = %s", (current_user["id"],))
-    curr_user_city = cursor.fetchone()
+    curr_user_result = cursor.fetchone()
     
     # Base query
     get_query = """
@@ -67,10 +96,14 @@ def search_workers(
     if gender:
         filters.append(f"profile.gender = '{gender}'")
         
-    # Add default filter by current user city
-    if curr_user_city:
-        city = curr_user_city["city"]
+    # Add default filter by current user city and user role should be Worker
+    if curr_user_result:
+        city = curr_user_result["city"]
+        email = current_user["email"]
+        
         filters.append(f"profile.city = '{city}'") 
+        filters.append(f"profile.role = 'Worker'")
+        filters.append(f"users.email != '{email}'")
 
     # If there are any filters, append them to the query
     if filters:
@@ -79,30 +112,9 @@ def search_workers(
     cursor.execute(get_query)
     results = cursor.fetchall() 
     
-    workers = {}
-    for row in results:
-        email = row["email"]
-        
-        # If worker is not in the dictionary by email, add them
-        if email not in workers:
-            workers[email] = {
-                "first_name": row["first_name"],
-                "last_name": row["last_name"],
-                "gender": row["gender"],
-                "phone_number": row["phone_number"],
-                "city": row["city"],
-                "working_areas": []
-            }
-        
-        # Append working area info to the worker
-        workers[email]["working_areas"].append({
-            "name": row["name"],
-            "rate_type": row["rate_type"],
-            "rate": row["rate"],
-            "description": row["description"]
-        })
+    # Call serialize_workers() function
+    workers = serialize_workers(results)
     
     # Convert the dictionary into a list of workers
-    return list(workers.values())
-    
+    return list(workers.values())    
     

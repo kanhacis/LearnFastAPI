@@ -4,6 +4,7 @@ from .schemas import UserCreate, UserProfile, ProfileUpdate, UserResponse
 from mysql.connector import connection
 from auth.hashing import Hash
 from auth.views import get_current_user
+from .utils import get_location
 
 
 user_router = APIRouter()
@@ -65,7 +66,7 @@ def create_profile(data: UserProfile, db: connection.MySQLConnection = Depends(g
     
     # Insert the new profile in the database
     insert_query = """
-        INSERT INTO profile (user_id, first_name, last_name, phone_number, gender, role, city, address, longitude, latitude) 
+        INSERT INTO profile (user_id, first_name, last_name, phone_number, gender, role, city, location, longitude, latitude) 
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     cursor.execute(insert_query, (
@@ -76,7 +77,7 @@ def create_profile(data: UserProfile, db: connection.MySQLConnection = Depends(g
         data.gender, 
         data.role,
         data.city,
-        data.address, 
+        data.location, 
         data.longitude, 
         data.latitude
     )) 
@@ -108,7 +109,7 @@ def view_profile(db: connection.MySQLConnection = Depends(get_db), current_user:
 @user_router.patch("/profile/", status_code=status.HTTP_200_OK, tags=profile_tags)
 def update_profile(data: ProfileUpdate, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     cursor = db.cursor()
-
+    
     # Check if the profile exists
     cursor.execute("SELECT id FROM profile WHERE user_id = %s", (current_user["id"],))
     result = cursor.fetchone()
@@ -136,10 +137,10 @@ def update_profile(data: ProfileUpdate, db: connection.MySQLConnection = Depends
         update_fields.append("gender = %s")
         update_values.append(data.gender)
     
-    if data.address and not data.address == "string":
-        update_fields.append("address = %s")
-        update_values.append(data.address)
-        
+    if data.location and not data.location == "string":
+        update_fields.append("location = %s")
+        update_values.append(data.location)
+    
     if data.city and not data.city == "string":
         update_fields.append("city = %s")
         update_values.append(data.city)
@@ -155,7 +156,7 @@ def update_profile(data: ProfileUpdate, db: connection.MySQLConnection = Depends
     if data.role and not data.role == "string":
         update_fields.append("role = %s")
         update_values.append(data.role)
-
+    
     # If no fields to update, raise an exception
     if not update_fields:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields provided for update")
@@ -186,7 +187,58 @@ def delete_profile(db: connection.MySQLConnection = Depends(get_db), current_use
     cursor.execute("DELETE FROM profile WHERE user_id = %s", (current_user["id"],))
     db.commit()
     
-    # Return the success message
+    # Return the success message                    
     return {"detail": "Profile deleted successfully"}
 
 
+## PUT endpoint to update user address
+@user_router.put("/update_address/", status_code=status.HTTP_200_OK, tags=profile_tags)
+def update_address(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found")
+
+    cursor = db.cursor()
+    
+    # Call get_location() to retrieve current user details
+    address = get_location()
+    if address is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not retrieve location data")
+    
+    city, latitude, longitude, location = address
+    
+    update_address_query = """
+        UPDATE profile SET city = %s, location = %s, longitude = %s, latitude = %s WHERE user_id = %s
+    """
+    
+    cursor.execute(update_address_query, (city, location, longitude, latitude, current_user["id"]))
+    db.commit()
+    
+    if cursor.rowcount > 0:
+        return {"detail": "User address updated successfully"}
+    elif cursor.rowcount == 0:
+        return {"detail": "Your address is up to date"}
+    
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Something went wrong, try again.")
+
+    
+## GET endpoint to get the current user address [city, latitude, longitude, location]
+@user_router.get("/get_address/", status_code=status.HTTP_200_OK, tags=profile_tags)
+def get_address():
+    # Call get_location() function (it returns city, latitude, longitude, and address)
+    user_address = get_location()  # Renamed variable to avoid recursion
+    
+    if user_address is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not retrieve location data")
+    
+    city, latitude, longitude, location = user_address
+    
+    response_data = {
+        "city": city,
+        "location": location,
+        "longitude": longitude,
+        "latitude": latitude
+    }
+    
+    return response_data 
+
+    

@@ -1,5 +1,5 @@
 import requests
-from geopy.geocoders import Nominatim
+
 
 def get_location():
     try:
@@ -12,18 +12,9 @@ def get_location():
         latitude = loc[0]
         longitude = loc[1]
         city = data['city']
-        address = data["org"]
+        location = data["org"]
 
-        return city, latitude, longitude, address
+        return city, latitude, longitude, location
     except Exception as e:
         print(f"Error: {e}")
-        return None
-
-
-location = get_location()
-if location:
-    city, latitude, longitude, address = location
-    print(f"City: {city}")
-    print(f"Address: {address}")
-    print(f"Latitude: {latitude}")
-    print(f"Longitude: {longitude}")
+        return None 

@@ -11,8 +11,9 @@ class WorkingAreaInfo(BaseModel):
      
 
 class WorkingAreaInfoUpdate(BaseModel):
+    id: int
     name: Optional[str]
-    # rate_type: Optional[RateEnum]
+    rate_type: Optional[RateEnum]
     rate: Optional[int]
     description: Optional[str]
 
