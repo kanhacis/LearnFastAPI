@@ -1,0 +1,37 @@
+SELECT 
+    users.email, 
+    profile.first_name, 
+    profile.last_name, 
+    profile.gender, 
+    profile.phone_number, 
+    profile.city, 
+    working_area_info.name, 
+    working_area_info.rate_type, 
+    working_area_info.rate, 
+    AVG(ratings.stars) AS avg_stars, 
+    working_area_info.description 
+FROM 
+    users 
+JOIN 
+    profile ON users.id = profile.user_id 
+JOIN 
+    worker ON profile.id = worker.profile_id 
+JOIN 
+    working_area_info ON worker.id = working_area_info.worker_id 
+LEFT JOIN 
+    ratings ON worker.id = ratings.worker_id 
+WHERE 
+    users.id IN (3, 4, 7, 8, 9, 10) 
+GROUP BY 
+    users.email, 
+    profile.first_name, 
+    profile.last_name, 
+    profile.gender, 
+    profile.phone_number, 
+    profile.city, 
+    working_area_info.name, 
+    working_area_info.rate_type, 
+    working_area_info.rate, 
+    working_area_info.description;
+
+

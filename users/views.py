@@ -201,6 +201,7 @@ def update_address(db: connection.MySQLConnection = Depends(get_db), current_use
     
     # Call get_location() to retrieve current user details
     address = get_location()
+    
     if address is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not retrieve location data")
     
@@ -241,4 +242,28 @@ def get_address():
     
     return response_data 
 
+    
+## PUT endpoint to update the role in user profile (switch user role/type)
+@user_router.put("/switch_role/", status_code=status.HTTP_200_OK, tags=profile_tags)
+def switch_role(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found")
+
+    cursor = db.cursor(dictionary=True)
+    
+    # Get the current user role
+    cursor.execute("SELECT role FROM profile WHERE user_id = %s", (current_user["id"],))
+    user_role = cursor.fetchall()
+    
+    # Change the user role in their profile table (Worker to User Or User to Worker)
+    curr_user_role = user_role[0]["role"]
+    if curr_user_role == "Worker":
+        cursor.execute("UPDATE profile SET role = %s WHERE user_id = %s", ("User", current_user["id"]))
+        db.commit()
+        return {"detail": "User profile switch to -User mode-"}
+    else:
+        cursor.execute("UPDATE profile SET role = %s WHERE user_id = %s", ("Worker", current_user["id"]))
+        db.commit()
+        return {"detail": "User profile switch to -Worker mode-"}
+    
     

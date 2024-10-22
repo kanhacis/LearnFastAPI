@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, status, HTTPException
+import mysql.connector
 from mysql.connector import connection
 from database import get_db
-from .schemas import Worker, WorkingAreaInfo, WorkingAreaInfoUpdate
+from .schemas import WorkingAreaInfo, WorkingAreaInfoUpdate, WorkerRating, WorkerRatingUpdate
 from users.schemas import UserResponse
 from auth.views import get_current_user
 
@@ -159,3 +160,80 @@ def delete_working_area_info(id: int, db: connection.MySQLConnection = Depends(g
     return {"detail": "Working area info successfully deleted"}
 
     
+## POST endpoint to create worker rating
+@worker_router.post("/worker_ratings/", status_code=status.HTTP_201_CREATED, tags=["Worker"])
+def worker_ratings(data: WorkerRating, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found")
+    
+    cursor = db.cursor() 
+    
+    try:
+        cursor.execute(
+            "INSERT INTO ratings (user_id, worker_id, stars) VALUES (%s, %s, %s)",
+            (current_user["id"], data.worker_id, data.stars)
+        )
+        
+        if cursor.rowcount > 0:
+            db.commit()
+            return {"detail": "Rating created successfully"}
+
+    except mysql.connector.IntegrityError as e:
+        error_code = e.errno  # Error number from the exception
+        
+        if error_code == 1062:  # Duplicate entry error
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Duplicate entry: You have already rated this worker."
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="An unexpected error occurred."
+            )
+            
+    except mysql.connector.DatabaseError as e:
+        error_code = e.errno  # Error number from the exception
+        
+        if error_code == 3819:  # Check constraint is violated (stars count should be in the range to 1 to 5)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Stars count should be in the range of 1 to 5"
+            )
+        
+    
+## PUT endpoint to update worker rating
+@worker_router.put("/worker_ratings/{worker_id}", status_code=status.HTTP_200_OK, tags=["Worker"])
+def worker_ratings(worker_id: int, data: WorkerRatingUpdate, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found")
+    
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute(
+            "UPDATE ratings SET stars = %s WHERE user_id = %s AND worker_id = %s",
+            (data.stars, current_user["id"], worker_id)
+        )
+        
+        if cursor.rowcount > 0:
+            db.commit()
+            return {"detail": "Rating updated successfully"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"No rating found to update with the worker id {worker_id}"
+            )
+        
+    except mysql.connector.DatabaseError as e:
+        error_code = e.errno  # Error number from the exception
+        
+        if error_code == 3819:  # Check constraint is violated (stars count should be in the range to 1 to 5)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Stars count should be in the range of 1 to 5"
+            )
+            
+        
+
+        

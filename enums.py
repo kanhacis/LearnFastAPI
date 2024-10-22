@@ -19,4 +19,5 @@ class RateEnum(str, Enum):
     Per_hour = "Per_hour"
     Half_day = "Half_day"
     Full_day = "Full_day"
+    Monthly = "Monthly"
      

@@ -20,3 +20,12 @@ class WorkingAreaInfoUpdate(BaseModel):
 
 class Worker(BaseModel):
     profile_id: int
+
+
+class WorkerRating(BaseModel):
+    worker_id: int
+    stars: int 
+    
+    
+class WorkerRatingUpdate(BaseModel):
+    stars: int

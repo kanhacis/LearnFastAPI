@@ -26,6 +26,7 @@ def serialize_workers(results):
                 "gender": row["gender"],
                 "phone_number": row["phone_number"],
                 "city": row["city"],
+                "avg_stars": row["avg_stars"] if row["avg_stars"] else 0,
                 "working_areas": []
             }
         
@@ -39,6 +40,52 @@ def serialize_workers(results):
         
     # Return the workers
     return workers
+
+
+## Function to get working area info for the retrieved workers
+def get_working_area_info(cursor, worker_ids):
+    get_working_area_query = f"""
+        SELECT 
+            users.email, 
+            profile.first_name, 
+            profile.last_name, 
+            profile.gender, 
+            profile.phone_number, 
+            profile.city, 
+            working_area_info.name, 
+            working_area_info.rate_type, 
+            working_area_info.rate, 
+            AVG(ratings.stars) AS avg_stars,
+            working_area_info.description 
+        FROM 
+            users 
+        JOIN 
+            profile ON users.id = profile.user_id 
+        JOIN 
+            worker ON profile.id = worker.profile_id 
+        JOIN 
+            working_area_info ON worker.id = working_area_info.worker_id
+        LEFT JOIN
+            ratings ON worker.id = ratings.worker_id 
+        WHERE 
+            users.id IN ({', '.join([str(id) for id in worker_ids])})
+        GROUP BY
+            users.email, 
+            profile.first_name, 
+            profile.last_name, 
+            profile.gender, 
+            profile.phone_number, 
+            profile.city, 
+            working_area_info.name, 
+            working_area_info.rate_type, 
+            working_area_info.rate, 
+            working_area_info.description;
+    """ 
+    
+    cursor.execute(get_working_area_query)
+    working_areas = cursor.fetchall() 
+    
+    return working_areas
 
 
 ## GET endpoint to search workers and filter ideal workers accordingly
@@ -82,7 +129,7 @@ def search_workers(
 
     # List to store filters 
     filters = [] 
-    
+
     # Add optional filters for working area info
     if min_rate is not None: 
         filters.append(f"working_area_info.rate >= {min_rate}") 
@@ -94,7 +141,7 @@ def search_workers(
         filters.append(f"working_area_info.name = '{working_area_name}'")
     if gender:
         filters.append(f"profile.gender = '{gender}'")
-        
+    
     # Add default filter by current user city and user role should be Worker
     if curr_user_result:
         city = curr_user_result["city"]
@@ -110,7 +157,7 @@ def search_workers(
     
     # Add pagination (LIMIT and OFFSET) to distinct workers
     get_workers_query += f" GROUP BY users.id LIMIT {limit} OFFSET {page_no * limit}"
-
+    
     cursor.execute(get_workers_query)
     workers = cursor.fetchall()
 
@@ -120,39 +167,14 @@ def search_workers(
     
     # Extract worker ids to fetch working area info for each
     worker_ids = [worker['user_id'] for worker in workers]
-    
-    # Query to get working area info for the retrieved workers
-    get_working_area_query = f"""
-        SELECT 
-            users.email,
-            profile.first_name,
-            profile.last_name,
-            profile.gender,
-            profile.phone_number,
-            profile.city,
-            working_area_info.name,
-            working_area_info.rate_type,
-            working_area_info.rate,
-            working_area_info.description
-        FROM 
-            users 
-        JOIN 
-            profile ON users.id = profile.user_id 
-        JOIN 
-            worker ON profile.id = worker.profile_id 
-        JOIN 
-            working_area_info ON worker.id = working_area_info.worker_id 
-        WHERE 
-            users.id IN ({', '.join([str(id) for id in worker_ids])}) 
-    """ 
-    
-    cursor.execute(get_working_area_query)
-    working_areas = cursor.fetchall()
-    
+        
+    # Call get_working_area_info() function to get the workers working areas informations
+    working_areas = get_working_area_info(cursor, worker_ids)
+        
     # Call serialize_workers() function to format the results
     result = serialize_workers(working_areas)
     
     # Return the list of workers with their respective working areas
     return list(result.values()) 
-
+    
     
