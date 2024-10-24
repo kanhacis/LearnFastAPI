@@ -8,13 +8,13 @@ from .schemas import (
 )
 from users.schemas import UserResponse
 from auth.views import get_current_user
-from .notify_worker import worker_notifications
+from .notification import worker_notifications, user_notifications
 
 
 worker_router = APIRouter()
 
 
-## POST endpoint to complete worker profile
+## POST Endpoint: Complete worker profile
 @worker_router.post("/worker/", status_code=status.HTTP_201_CREATED, tags=["Worker"])
 def create_worker(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     cursor = db.cursor(dictionary=True)
@@ -45,7 +45,7 @@ def create_worker(db: connection.MySQLConnection = Depends(get_db), current_user
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found") 
 
 
-## POST endpoint to create working area info
+## POST Endpoint: Create working area info
 @worker_router.post("/working_area_info/", status_code=status.HTTP_201_CREATED, tags=["Worker area information"])
 def create_working_area_info(
     data: WorkingAreaInfo, db: connection.MySQLConnection = Depends(get_db), 
@@ -68,7 +68,7 @@ def create_working_area_info(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found, please create")
     
 
-## GET endpoint to view my working area info
+## GET Endpoint: View working area info
 @worker_router.get("/working_area_info/", status_code=status.HTTP_200_OK, tags=["Worker area information"])
 def view_working_area_info(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     cursor = db.cursor(dictionary=True)
@@ -88,7 +88,7 @@ def view_working_area_info(db: connection.MySQLConnection = Depends(get_db), cur
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Working area info not found")
 
 
-## PATCH endpoint to update working area info
+## PATCH Endpoint: Update working area info
 @worker_router.patch("/working_area_info/", status_code=status.HTTP_200_OK, tags=["Worker area information"])
 async def update_working_area_info(
     data: WorkingAreaInfoUpdate, db: connection.MySQLConnection = Depends(get_db), 
@@ -152,7 +152,7 @@ async def update_working_area_info(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No working area info found to update")
 
 
-## DELETE endpoint to delete working area info
+## DELETE Endpoint: Delete working area info
 @worker_router.delete("/working_area_info/{id}", status_code=status.HTTP_200_OK, tags=["Worker area information"])
 def delete_working_area_info(id: int, db: connection.MySQLConnection = Depends(get_db)):
     cursor = db.cursor()
@@ -215,7 +215,7 @@ async def worker_ratings(
             )
         
     
-## PUT endpoint to update worker rating
+## PUT Endpoint: Update worker rating
 @worker_router.put("/worker_ratings/{worker_id}", status_code=status.HTTP_200_OK, tags=["Worker"])
 def worker_ratings(
     worker_id: int, 
@@ -297,11 +297,11 @@ def request_worker(
                 f"New request from User {current_user['id']} with Request ID {worker_request_id}"
             ) 
         
-        return {"detail": "Request sent successfully"}
+        return {"request_id": worker_request_id, "detail": "Request sent successfully"}
     else:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send request")
 
-
+    
 ## PUT Endpoint: Worker accepts or rejects the request
 @worker_router.put("/request_worker/", status_code=status.HTTP_200_OK, tags=["Worker"])
 def respond_to_request(
@@ -321,11 +321,29 @@ def respond_to_request(
     if worker_request[0]["status"] != "Pending":
         raise HTTPException(status_code=400, detail="Request already responded to")
     
-    # Send response message to user
     if response == "Accepted":
-        return {"detail": "Request accepted"}
-    
+        # Update the worker_requests table with status accepted
+        cursor.execute("UPDATE worker_requests SET status = %s WHERE id = %s", ("Accepted", request_id))
+        db.commit()
+        
+        # Notify the worker if they are connected to SSE
+        if request_id in user_notifications:
+            user_notifications[request_id].append(
+                f"Your request response is Accepted, with request ID {request_id}"
+            ) 
+      
     if response == "Rejected":
-        return {"detail": "Request rejected"}
+        # Update the worker_requests table with status rejected
+        cursor.execute("UPDATE worker_requests SET status = %s WHERE id = %s", ("Rejected", request_id))
+        db.commit()
+        
+        # Notify the worker if they are connected to SSE
+        if request_id in user_notifications:
+            user_notifications[request_id].append(
+                f"Your request response is Rejected, with request ID {request_id}"
+            ) 
+            
+    return {"message": f"Request {response}"} 
     
-    return {"message": f"Request {response}"}
+    
+    
