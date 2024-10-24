@@ -90,7 +90,7 @@ def get_working_area_info(cursor, worker_ids):
 
 ## GET endpoint to search workers and filter ideal workers accordingly
 @search_workers_router.get("/search_workers/", status_code=status.HTTP_200_OK)
-def search_workers(
+async def search_workers(
     db: connection.MySQLConnection = Depends(get_db),
     min_rate: Optional[float] = Query(None, description="Minimum rate for filtering"),
     max_rate: Optional[float] = Query(None, description="Maximum rate for filtering"),
@@ -169,10 +169,10 @@ def search_workers(
     worker_ids = [worker['user_id'] for worker in workers]
         
     # Call get_working_area_info() function to get the workers working areas informations
-    working_areas = get_working_area_info(cursor, worker_ids)
+    working_areas = await get_working_area_info(cursor, worker_ids)
         
     # Call serialize_workers() function to format the results
-    result = serialize_workers(working_areas)
+    result = await serialize_workers(working_areas)
     
     # Return the list of workers with their respective working areas
     return list(result.values()) 

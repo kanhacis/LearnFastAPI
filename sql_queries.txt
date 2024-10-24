@@ -35,3 +35,11 @@ GROUP BY
     working_area_info.description;
 
 
+
+June: 121 hours
+July: 0 hours
+August: 16 hours
+September: 118 hours
+October: 99 hours 
+
+Skills: Django, FastAPI, Web scraping 

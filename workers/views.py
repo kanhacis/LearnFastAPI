@@ -2,9 +2,13 @@ from fastapi import APIRouter, Depends, status, HTTPException
 import mysql.connector
 from mysql.connector import connection
 from database import get_db
-from .schemas import WorkingAreaInfo, WorkingAreaInfoUpdate, WorkerRating, WorkerRatingUpdate
+from .schemas import (
+    WorkingAreaInfo, WorkingAreaInfoUpdate, WorkerRating, 
+    WorkerRatingUpdate
+)
 from users.schemas import UserResponse
 from auth.views import get_current_user
+from .notify_worker import worker_notifications
 
 
 worker_router = APIRouter()
@@ -39,11 +43,14 @@ def create_worker(db: connection.MySQLConnection = Depends(get_db), current_user
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User role should be Worker, please edit")
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found") 
-    
-    
+
+
 ## POST endpoint to create working area info
 @worker_router.post("/working_area_info/", status_code=status.HTTP_201_CREATED, tags=["Worker area information"])
-def create_working_area_info(data: WorkingAreaInfo, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+def create_working_area_info(
+    data: WorkingAreaInfo, db: connection.MySQLConnection = Depends(get_db), 
+    current_user: UserResponse = Depends(get_current_user)
+):
     cursor = db.cursor(dictionary=True) 
     
     cursor.execute("SELECT id FROM worker WHERE profile_id = (SELECT id FROM profile WHERE user_id = %s)", (current_user["id"],))
@@ -60,7 +67,7 @@ def create_working_area_info(data: WorkingAreaInfo, db: connection.MySQLConnecti
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found, please create")
     
-    
+
 ## GET endpoint to view my working area info
 @worker_router.get("/working_area_info/", status_code=status.HTTP_200_OK, tags=["Worker area information"])
 def view_working_area_info(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
@@ -83,7 +90,10 @@ def view_working_area_info(db: connection.MySQLConnection = Depends(get_db), cur
 
 ## PATCH endpoint to update working area info
 @worker_router.patch("/working_area_info/", status_code=status.HTTP_200_OK, tags=["Worker area information"])
-def update_working_area_info(data: WorkingAreaInfoUpdate, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+async def update_working_area_info(
+    data: WorkingAreaInfoUpdate, db: connection.MySQLConnection = Depends(get_db), 
+    current_user: UserResponse = Depends(get_current_user)
+):
     cursor = db.cursor()
 
     # Check if the worker and their working area info exist
@@ -93,7 +103,7 @@ def update_working_area_info(data: WorkingAreaInfoUpdate, db: connection.MySQLCo
         JOIN profile as p ON w.profile_id = p.id
         WHERE p.user_id = %s AND wai.id = %s
     """
-    cursor.execute(get_worker_info_query, (current_user["id"], data.id))
+    await cursor.execute(get_worker_info_query, (current_user["id"], data.id))
     worker_info_result = cursor.fetchone()  # Fetch only one record
     
     # Before executing the update query, make sure there are no unread results
@@ -134,7 +144,7 @@ def update_working_area_info(data: WorkingAreaInfoUpdate, db: connection.MySQLCo
         update_values.append(data.id) # Append working area info id to the list of values for the query
 
         # Execute the final update query
-        cursor.execute(update_query, tuple(update_values))
+        await cursor.execute(update_query, tuple(update_values))
         db.commit()
         
         return {"detail": "Working area information updated successfully"}
@@ -160,16 +170,19 @@ def delete_working_area_info(id: int, db: connection.MySQLConnection = Depends(g
     return {"detail": "Working area info successfully deleted"}
 
     
-## POST endpoint to create worker rating
+## POST Endpoint: User gives rating/stars to worker
 @worker_router.post("/worker_ratings/", status_code=status.HTTP_201_CREATED, tags=["Worker"])
-def worker_ratings(data: WorkerRating, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+async def worker_ratings(
+    data: WorkerRating, db: connection.MySQLConnection = Depends(get_db), 
+    current_user: UserResponse = Depends(get_current_user)
+):
     if not current_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found")
     
     cursor = db.cursor() 
     
     try:
-        cursor.execute(
+        await cursor.execute(
             "INSERT INTO ratings (user_id, worker_id, stars) VALUES (%s, %s, %s)",
             (current_user["id"], data.worker_id, data.stars)
         )
@@ -204,9 +217,14 @@ def worker_ratings(data: WorkerRating, db: connection.MySQLConnection = Depends(
     
 ## PUT endpoint to update worker rating
 @worker_router.put("/worker_ratings/{worker_id}", status_code=status.HTTP_200_OK, tags=["Worker"])
-def worker_ratings(worker_id: int, data: WorkerRatingUpdate, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
+def worker_ratings(
+    worker_id: int, 
+    data: WorkerRatingUpdate, 
+    db: connection.MySQLConnection = Depends(get_db), 
+    current_user: UserResponse = Depends(get_current_user)
+):
     if not current_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User profile not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
     cursor = db.cursor()
     
@@ -235,5 +253,79 @@ def worker_ratings(worker_id: int, data: WorkerRatingUpdate, db: connection.MySQ
             )
             
         
+## POST Endpoint: User sends a request to the worker
+@worker_router.post("/request_worker/", status_code=status.HTTP_201_CREATED, tags=["Worker"])
+def request_worker(
+    worker_id: int, db: connection.MySQLConnection = Depends(get_db), 
+    current_user: dict = Depends(get_current_user)
+):
+    # Check if the user exists
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    # Check if the worker exists
+    cursor = db.cursor()
+    cursor.execute("SELECT id FROM worker WHERE id = %s", (worker_id,))
+    current_worker = cursor.fetchall()
+    
+    if not current_worker:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found")
+    
+    # Check if the user is sending the request again
+    cursor.execute("SELECT status FROM worker_requests WHERE user_id = %s AND worker_id = %s LIMIT 1", 
+                   (current_user["id"], worker_id))
+    request_status = cursor.fetchall()
+    
+    if request_status and request_status[0][0] == "Pending":
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Please wait for worker response")
+    
+    # Insert new request
+    cursor.execute(
+        "INSERT INTO worker_requests (user_id, worker_id, status) VALUES (%s, %s, %s)", 
+        (current_user["id"], worker_id, "Pending")
+    )
+    
+    # Get the ID of the newly created worker_request
+    worker_request_id = cursor.lastrowid
 
+    if cursor.rowcount > 0:
+        db.commit()
+
+        # Notify the worker if they are connected to SSE
+        if worker_id in worker_notifications:
+            worker_notifications[worker_id].append(
+                f"New request from User {current_user['id']} with Request ID {worker_request_id}"
+            ) 
         
+        return {"detail": "Request sent successfully"}
+    else:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send request")
+
+
+## PUT Endpoint: Worker accepts or rejects the request
+@worker_router.put("/request_worker/", status_code=status.HTTP_200_OK, tags=["Worker"])
+def respond_to_request(
+    request_id: int, response: str, 
+    db: connection.MySQLConnection = Depends(get_db),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    cursor = db.cursor(dictionary=True)
+    
+    # Fetch the worker request id
+    cursor.execute("SELECT id, status FROM worker_requests WHERE id = %s", (request_id,)) 
+    worker_request = cursor.fetchall()
+    
+    if not worker_request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    if worker_request[0]["status"] != "Pending":
+        raise HTTPException(status_code=400, detail="Request already responded to")
+    
+    # Send response message to user
+    if response == "Accepted":
+        return {"detail": "Request accepted"}
+    
+    if response == "Rejected":
+        return {"detail": "Request rejected"}
+    
+    return {"message": f"Request {response}"}

@@ -29,3 +29,5 @@ class WorkerRating(BaseModel):
     
 class WorkerRatingUpdate(BaseModel):
     stars: int
+    
+    
