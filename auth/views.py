@@ -3,7 +3,6 @@ from mysql.connector import connection
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-
 from .hashing import Hash
 from .utils import create_access_token, verify_token
 from database import get_db
@@ -30,6 +29,7 @@ async def get_current_user(token: HTTPAuthorizationCredentials = Depends(bearer_
     return verify_token(token.credentials, credentials_exception) 
 
 
+## POST Endpoint: User login
 @auth_router.post("/login")
 def login(data: Login, db: connection.MySQLConnection = Depends(get_db)):
     cursor = db.cursor(dictionary=True)
@@ -46,3 +46,4 @@ def login(data: Login, db: connection.MySQLConnection = Depends(get_db)):
     access_token = create_access_token(data={"sub": result["email"], "id": result["id"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
+ 

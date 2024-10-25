@@ -41,6 +41,7 @@ def event_stream_user(request_id: int):
             while user_notifications[request_id]:
                 notification = user_notifications[request_id].pop(0)
                 yield f"data: {notification}\n\n"
+        time.sleep(5)  # Heartbeat to keep connection alive
 
 
 ## SSE Endpoint for User to listen to real-time notifications 
@@ -52,3 +53,4 @@ async def user_sse(request_id: int):
         
     # Start streaming user notifications
     return StreamingResponse(event_stream_user(request_id), media_type="text/event-stream")
+    
