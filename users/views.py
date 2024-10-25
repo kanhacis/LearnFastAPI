@@ -13,7 +13,7 @@ user_tags = ["User"]
 profile_tags = ["Profile"]
 
 
-## POST endpoint to create an user
+## POST Endpoint: Create an user.
 @user_router.post("/user/", status_code=status.HTTP_201_CREATED, tags=user_tags)
 def create_user(data: UserCreate, db: connection.MySQLConnection = Depends(get_db)):
     cursor = db.cursor()
@@ -36,7 +36,7 @@ def create_user(data: UserCreate, db: connection.MySQLConnection = Depends(get_d
     return {"detail": "User created successfully"}
     
 
-## GET endpoint to view the users
+## GET Endpoint: List all users.
 @user_router.get("/users/", status_code=status.HTTP_200_OK, tags=user_tags)
 def all_users(db: connection.MySQLConnection = Depends(get_db)):
     cursor = db.cursor(dictionary=True)
@@ -53,7 +53,7 @@ def all_users(db: connection.MySQLConnection = Depends(get_db)):
     return result
 
 
-## POST endpoint to create user profile
+## POST Endpoint: Create user profile.
 @user_router.post("/profile/", status_code=status.HTTP_201_CREATED, tags=profile_tags)
 def create_profile(data: UserProfile, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     cursor = db.cursor()
@@ -89,7 +89,7 @@ def create_profile(data: UserProfile, db: connection.MySQLConnection = Depends(g
     return {"detail": "Profile created successfully"}
 
 
-## GET endpoint to view user profile
+## GET Endpoint: View user profile.
 @user_router.get("/profile/", status_code=status.HTTP_200_OK, tags=profile_tags)
 def view_profile(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     cursor = db.cursor(dictionary=True)
@@ -105,7 +105,7 @@ def view_profile(db: connection.MySQLConnection = Depends(get_db), current_user:
     return result
 
 
-## PATCH endpoint for user profile
+## PATCH Endpoint: Update user profile.
 @user_router.patch("/profile/", status_code=status.HTTP_200_OK, tags=profile_tags)
 def update_profile(data: ProfileUpdate, db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     cursor = db.cursor()
@@ -169,9 +169,9 @@ def update_profile(data: ProfileUpdate, db: connection.MySQLConnection = Depends
     db.commit()
 
     return {"message": "Profile updated successfully"}
-    
-
-## DELETE endpoint for user profile
+ 
+ 
+## DELETE Endpoint: Delete user profile.
 @user_router.delete("/profile/", status_code=status.HTTP_200_OK, tags=profile_tags)
 def delete_profile(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     cursor = db.cursor()
@@ -191,7 +191,7 @@ def delete_profile(db: connection.MySQLConnection = Depends(get_db), current_use
     return {"detail": "Profile deleted successfully"}
 
 
-## PUT endpoint to update user address
+## PUT Endpoint: Fetch user address using the ipinfo api and update it.
 @user_router.put("/update_address/", status_code=status.HTTP_200_OK, tags=profile_tags)
 def update_address(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     if not current_user:
@@ -222,7 +222,7 @@ def update_address(db: connection.MySQLConnection = Depends(get_db), current_use
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Something went wrong, try again.")
 
     
-## GET endpoint to get the current user address [city, latitude, longitude, location]
+## GET Endpoint: Fetch the current user address [city, latitude, longitude, location].
 @user_router.get("/get_address/", status_code=status.HTTP_200_OK, tags=profile_tags)
 def get_address():
     # Call get_location() function (it returns city, latitude, longitude, and address)
@@ -243,7 +243,7 @@ def get_address():
     return response_data 
 
     
-## PUT endpoint to update the role in user profile (switch user role/type)
+## PUT Endpoint: Update role in user profile (switch user role/type).
 @user_router.put("/switch_role/", status_code=status.HTTP_200_OK, tags=profile_tags)
 def switch_role(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     if not current_user:
@@ -266,4 +266,4 @@ def switch_role(db: connection.MySQLConnection = Depends(get_db), current_user: 
         db.commit()
         return {"detail": "User profile switch to -Worker mode-"}
     
-    
+ 

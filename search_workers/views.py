@@ -88,7 +88,7 @@ def get_working_area_info(cursor, worker_ids):
     return working_areas
 
 
-## GET endpoint to search workers and filter ideal workers accordingly
+## GET Endpoint: List all workers & apply many filter to find ideal worker by user.
 @search_workers_router.get("/search_workers/", status_code=status.HTTP_200_OK)
 async def search_workers(
     db: connection.MySQLConnection = Depends(get_db),

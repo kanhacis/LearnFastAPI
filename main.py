@@ -3,7 +3,7 @@ from users.views import user_router
 from workers.views import worker_router
 from auth.views import auth_router
 from search_workers.views import search_workers_router
-from workers.notification import sse_router
+from notification import sse_router
 
 
 app = FastAPI()

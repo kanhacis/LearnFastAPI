@@ -3,10 +3,10 @@ from fastapi import APIRouter
 import time
 
 
-# Global dictionary to hold worker notifications
+## Global dictionary to hold worker notifications
 worker_notifications = {}
 
-# Global dictionary to hold user notifications
+## Global dictionary to hold user notifications
 user_notifications = {}
 
 sse_router = APIRouter()
@@ -41,6 +41,7 @@ def event_stream_user(request_id: int):
             while user_notifications[request_id]:
                 notification = user_notifications[request_id].pop(0)
                 yield f"data: {notification}\n\n"
+
 
 ## SSE Endpoint for User to listen to real-time notifications 
 @sse_router.get("/sse/user/{request_id}", tags=["SSE"])

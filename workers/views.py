@@ -8,13 +8,13 @@ from .schemas import (
 )
 from users.schemas import UserResponse
 from auth.views import get_current_user
-from .notification import worker_notifications, user_notifications
+from notification import worker_notifications, user_notifications
 
 
 worker_router = APIRouter()
 
 
-## POST Endpoint: Complete worker profile
+## POST Endpoint: Complete worker profile.
 @worker_router.post("/worker/", status_code=status.HTTP_201_CREATED, tags=["Worker"])
 def create_worker(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     cursor = db.cursor(dictionary=True)
@@ -45,7 +45,7 @@ def create_worker(db: connection.MySQLConnection = Depends(get_db), current_user
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found") 
 
 
-## POST Endpoint: Create working area info
+## POST Endpoint: Create working area info.
 @worker_router.post("/working_area_info/", status_code=status.HTTP_201_CREATED, tags=["Worker area information"])
 def create_working_area_info(
     data: WorkingAreaInfo, db: connection.MySQLConnection = Depends(get_db), 
@@ -66,9 +66,9 @@ def create_working_area_info(
         return {"detail": "Working area information created successfully"}
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Worker not found, please create")
-    
 
-## GET Endpoint: View working area info
+ 
+## GET Endpoint: View working area info.
 @worker_router.get("/working_area_info/", status_code=status.HTTP_200_OK, tags=["Worker area information"])
 def view_working_area_info(db: connection.MySQLConnection = Depends(get_db), current_user: UserResponse = Depends(get_current_user)):
     cursor = db.cursor(dictionary=True)
@@ -87,8 +87,8 @@ def view_working_area_info(db: connection.MySQLConnection = Depends(get_db), cur
     else:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Working area info not found")
 
-
-## PATCH Endpoint: Update working area info
+ 
+## PATCH Endpoint: Update working area info.
 @worker_router.patch("/working_area_info/", status_code=status.HTTP_200_OK, tags=["Worker area information"])
 async def update_working_area_info(
     data: WorkingAreaInfoUpdate, db: connection.MySQLConnection = Depends(get_db), 
@@ -152,7 +152,7 @@ async def update_working_area_info(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No working area info found to update")
 
 
-## DELETE Endpoint: Delete working area info
+## DELETE Endpoint: Delete working area info.
 @worker_router.delete("/working_area_info/{id}", status_code=status.HTTP_200_OK, tags=["Worker area information"])
 def delete_working_area_info(id: int, db: connection.MySQLConnection = Depends(get_db)):
     cursor = db.cursor()
@@ -169,8 +169,8 @@ def delete_working_area_info(id: int, db: connection.MySQLConnection = Depends(g
 
     return {"detail": "Working area info successfully deleted"}
 
-    
-## POST Endpoint: User gives rating/stars to worker
+
+## POST Endpoint: User gives rating/stars to worker.
 @worker_router.post("/worker_ratings/", status_code=status.HTTP_201_CREATED, tags=["Worker"])
 async def worker_ratings(
     data: WorkerRating, db: connection.MySQLConnection = Depends(get_db), 
@@ -215,7 +215,7 @@ async def worker_ratings(
             )
         
     
-## PUT Endpoint: Update worker rating
+## PUT Endpoint: Update worker rating.
 @worker_router.put("/worker_ratings/{worker_id}", status_code=status.HTTP_200_OK, tags=["Worker"])
 def worker_ratings(
     worker_id: int, 
@@ -253,7 +253,7 @@ def worker_ratings(
             )
             
         
-## POST Endpoint: User sends a request to the worker
+## POST Endpoint: User sends a request to the worker.
 @worker_router.post("/request_worker/", status_code=status.HTTP_201_CREATED, tags=["Worker"])
 def request_worker(
     worker_id: int, db: connection.MySQLConnection = Depends(get_db), 
@@ -302,7 +302,7 @@ def request_worker(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send request")
 
     
-## PUT Endpoint: Worker accepts or rejects the request
+## PUT Endpoint: Worker accepts or rejects the request.
 @worker_router.put("/request_worker/", status_code=status.HTTP_200_OK, tags=["Worker"])
 def respond_to_request(
     request_id: int, response: str, 
