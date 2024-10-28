@@ -18,6 +18,7 @@ from .services import (
     get_worker_id_by_user_id,
     insert_working_area_info,
     get_working_area_info,
+    check_worker_info,
     delete_working_area_info,
     create_worker_rating,
     fetch_worker_by_id,
@@ -138,14 +139,7 @@ async def update_working_area_info(
     cursor = db.cursor()
 
     # Check if the worker and their working area info exist
-    get_worker_info_query = """
-        SELECT wai.id, wai.worker_id FROM working_area_info as wai
-        JOIN worker as w ON wai.worker_id = w.id
-        JOIN profile as p ON w.profile_id = p.id
-        WHERE p.user_id = %s AND wai.id = %s
-    """
-    cursor.execute(get_worker_info_query, (current_user["id"], data.id))
-    worker_info_result = cursor.fetchone()  # Fetch only one record
+    worker_info_result = check_worker_info(cursor, current_user, data)  # Fetch only one record
 
     # Before executing the update query, make sure there are no unread results
     cursor.fetchall()  # Consume remaining results, if any
@@ -195,7 +189,7 @@ async def update_working_area_info(
         )  # Append working area info id to the list of values for the query
 
         # Execute the final update query
-        await cursor.execute(update_query, tuple(update_values))
+        cursor.execute(update_query, tuple(update_values))
         db.commit()
 
         return {"detail": "Working area information updated successfully"}

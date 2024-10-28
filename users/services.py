@@ -84,7 +84,7 @@ def update_live_address(cursor, current_user, city, location, longitude, latitud
     cursor.execute(
         update_address_query, (city, location, longitude, latitude, current_user["id"])
     )
-    return cursor.rowcount()
+    return cursor.rowcount
 
 
 ## Helper function to get current user role

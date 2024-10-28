@@ -46,7 +46,7 @@ def insert_working_area_info(cursor, worker_id: int, data):
     )
 
 
-## Helper function to get workers (working area informations)
+## Helper function to get workers and (working area informations)
 def get_working_area_info(cursor, current_user):
     get_query = """
         SELECT wai.* FROM working_area_info AS wai 
@@ -57,6 +57,19 @@ def get_working_area_info(cursor, current_user):
     cursor.execute(get_query, (current_user["id"],))
     return cursor.fetchall()
 
+
+## Helper function to check worker and (working area information)
+def check_worker_info(cursor, current_user, data):
+    get_worker_info_query = """
+        SELECT wai.id, wai.worker_id FROM working_area_info as wai
+        JOIN worker as w ON wai.worker_id = w.id
+        JOIN profile as p ON w.profile_id = p.id
+        WHERE p.user_id = %s AND wai.id = %s
+    """
+    
+    cursor.execute(get_worker_info_query, (current_user["id"], data.id))
+    return cursor.fetchone()
+ 
 
 ## Helper function to delete working area information
 def delete_working_area_info(cursor, area_info_id: int):

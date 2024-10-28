@@ -1,4 +1,5 @@
 from fastapi import Depends, APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
 from database import get_db
 from .schemas import UserCreate, UserProfile, ProfileUpdate, UserResponse
 from mysql.connector import connection
@@ -36,34 +37,37 @@ async def create_user(
     try:
         # Check if the email already exists
         if email_exists(cursor, data.email):
-            raise HTTPException(
+            return JSONResponse(
+                content={"detail": "Email already registered"},
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Email already registered",
             )
 
         # Validate password length
         if not validate_password_length(data.password):
-            raise HTTPException(
+            return JSONResponse(
+                content={"detail": "Password must contain at least 4 characters"},
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Password must contain at least 4 characters",
             )
 
         # Insert the new user and commit
         user_id, affected_rows = insert_new_user(cursor, data)
         if affected_rows > 0:
             db.commit()
-            return {"user_id": user_id, "detail": "User created successfully"}
+            return JSONResponse(
+                content={"detail": "User created successfully"},
+                status_code=status.HTTP_201_CREATED,
+            )
         else:
-            raise HTTPException(
+            return JSONResponse(
+                content={"detail": "Something went wrong, Try again!"},
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="User creation failed",
             )
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(
+        return JSONResponse(
+            content={"detail": f"Failed to create new user: {str(e)}"},
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create new user: {str(e)}",
         )
 
 
@@ -151,9 +155,7 @@ async def update_profile(
     cursor = db.cursor()
 
     # Check if the profile exists
-    cursor.execute("SELECT id FROM profile WHERE user_id = %s", (current_user["id"],))
-    result = cursor.fetchone()
-    if not result:
+    if not profile_exists(cursor, current_user["id"]):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found"
         )
@@ -216,7 +218,7 @@ async def update_profile(
     return {"message": "Profile updated successfully"}
 
 
-## DELETE Endpoint: Delete user profile. *
+## DELETE Endpoint: Delete user profile.
 @user_router.delete("/profile/", status_code=status.HTTP_200_OK, tags=profile_tags)
 async def delete_profile(
     db: connection.MySQLConnection = Depends(get_db),
@@ -229,7 +231,7 @@ async def delete_profile(
 
     if not result:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_data, detail="Profile not found"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Profile not found"
         )
 
     try:
@@ -262,7 +264,7 @@ async def update_address(
     cursor = db.cursor()
 
     # Call get_location() to retrieve current user details
-    address = await get_location()
+    address = get_location()
 
     if address is None:
         raise HTTPException(

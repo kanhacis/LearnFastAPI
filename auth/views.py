@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from mysql.connector import connection
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -38,12 +39,12 @@ def login(data: Login, db: connection.MySQLConnection = Depends(get_db)):
     result = cursor.fetchone()
 
     if not result:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid credentials")
+        return JSONResponse(content={"detail": "Email is not registered!"}, status_code=status.HTTP_404_NOT_FOUND)
     
     if not Hash.verify(data.password, result["password"]):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Incorrect password")
+        return JSONResponse(content={"detail": "Incorrect password"}, status_code=status.HTTP_401_UNAUTHORIZED)
 
     access_token = create_access_token(data={"sub": result["email"], "id": result["id"]})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return JSONResponse(content={"access_token": access_token, "token_type": "bearer", "detail": "Sing in successfully!", }, status_code=status.HTTP_200_OK)
 
  
